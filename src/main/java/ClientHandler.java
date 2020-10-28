@@ -1,0 +1,67 @@
+import org.w3c.dom.ls.LSOutput;
+
+import java.io.*;
+import java.net.Socket;
+import java.net.SocketException;
+
+public class ClientHandler implements Runnable {
+
+    private final Socket socket;
+
+    public ClientHandler(Socket socket) {
+        this.socket = socket;
+    }
+
+    @Override
+    public void run() {
+        try (DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+             DataInputStream in = new DataInputStream(socket.getInputStream())
+        ) {
+            while (true) {
+                String command = in.readUTF();
+// TODO: 27.10.2020 выгрузка с облака
+                if (command.equals("upload")) {
+                    try {
+                        File file = new File("server/" + in.readUTF());
+                        long size = in.readLong();
+                        FileOutputStream fos = new FileOutputStream(file);
+                        byte[] buffer = new byte[256];
+                        for (int i = 0; i < (size + 255) / 256; i++) {
+                            int read = in.read(buffer);
+                            fos.write(buffer, 0, read);
+                        }
+                        fos.close();
+                    } catch (Exception e) {
+                        e.getStackTrace();
+                    }
+                }
+// TODO: 27.10.2020 загрузка на облако
+                if (command.equals("download")) {
+                    try {
+                        File file = new File("server/" + in.readUTF());
+                        long length = file.length();
+                        out.writeLong(length);
+                        FileInputStream fileBytes = new FileInputStream(file);
+                        int read = 0;
+                        byte[] buffer = new byte[256];
+                        while ((read = fileBytes.read(buffer)) != -1) {
+                            out.write(buffer, 0, read);
+                        }
+                    } catch (Exception e) {
+                        e.getStackTrace();
+                    }
+                }
+
+                if (command.equals("exit")) {
+                    System.out.println("Client disconnected correctly");
+                    break;
+                }
+                out.writeUTF(command);
+            }
+        } catch (SocketException socketException) {
+            System.out.println("Client disconnected");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
